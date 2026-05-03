@@ -431,7 +431,7 @@ test_loader  = DataLoader(test_dataset,  batch_size=batch_size, shuffle=False)
 asct_pos_weight  = torch.tensor([1.0],   dtype=torch.float32, device=device)
 vart_pos_weight  = torch.tensor([1.0],   dtype=torch.float32, device=device)
 encet_pos_weight = torch.tensor([1.0],   dtype=torch.float32, device=device)
-hept_pos_weight  = torch.tensor([40.0], dtype=torch.float32, device=device)  # tuned
+hept_pos_weight  = torch.tensor([10.0], dtype=torch.float32, device=device)  # tuned
 
 criterion_asct  = nn.BCEWithLogitsLoss(reduction='none', pos_weight=asct_pos_weight)
 criterion_vart  = nn.BCEWithLogitsLoss(reduction='none', pos_weight=vart_pos_weight)
