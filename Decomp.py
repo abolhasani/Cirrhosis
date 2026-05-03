@@ -65,7 +65,7 @@ disease_list = [
 ]
 
 # ----------------------------------------------------------------------------
-# 4) Build X WITHOUT leakage columns
+# 4) Build X
 # ----------------------------------------------------------------------------
 features_to_drop = [
     'ASCT','VART','ENCET','HEPT',   
@@ -92,7 +92,7 @@ train_rows_df = df.loc[X_train_df.index].copy()
 test_rows_df  = df.loc[X_test_df.index].copy()
 
 # ----------------------------------------------------------------------------
-# 6) IF Model (group multipliers now over 12 groups)
+# 6) IF Model 
 # ----------------------------------------------------------------------------
 GROUP_ORDER = [
     'Male_0_40_O0','Male_40_60_O0','Male_60+_O0',
@@ -610,7 +610,7 @@ for _v in _required:
 # ===== Configs
 HEADS = ['asct','vart','encet','hept']
 HEAD_TITLES = {'asct':'ASCT','vart':'VART','encet':'ENCET','hept':'HEPT'}
-THRESHOLDS = {'ASCT':0.5,'VART':0.5,'ENCET':0.5,'HEPT':0.90}
+THRESHOLDS = {'ASCT':0.5,'VART':0.5,'ENCET':0.5,'HEPT':0.85}
 RANDOM_PERSON = False    # choose a random test patient
 PERSON_POS = 303         # positional index into X_test_df if RANDOM_PERSON=False
 TOPK_SHAP = 15
@@ -933,7 +933,7 @@ from matplotlib.patches import FancyArrowPatch
 OUT_DIR = "target_relationships_figs"; os.makedirs(OUT_DIR, exist_ok=True)
 ALL_TARGETS = ['ASCT','VART','ENCET','HEPT','DEADT']
 MAIN_TARGETS = ['ASCT','VART','ENCET','HEPT']
-THRESHOLDS = THRESHOLDS if 'THRESHOLDS' in globals() else {'ASCT':0.5,'VART':0.5,'ENCET':0.5,'HEPT':0.90}
+THRESHOLDS = THRESHOLDS if 'THRESHOLDS' in globals() else {'ASCT':0.5,'VART':0.5,'ENCET':0.5,'HEPT':0.85}
 THR_DEADT = 0.50
 
 # ---------- 1) Get TRAIN & TEST probabilities for all 5 heads ----------
