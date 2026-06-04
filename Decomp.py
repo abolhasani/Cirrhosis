@@ -858,9 +858,64 @@ if SAVE_PNG:
                  dpi=PNG_DPI, bbox_inches="tight")
 plt.show()
 
+# =================== Probability calibration (Platt scaling) ===================
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+
+ALL_TARGETS = ['ASCT','VART','ENCET','HEPT','DEADT']
+
+def _predict_all5_logits(df_X, node2v, gidx, batch=512):
+    N = len(df_X)
+    logits = np.zeros((N, 5), dtype=np.float32)
+    X_np = df_X.values.astype(np.float32)
+    for s in range(0, N, batch):
+        e = min(N, s + batch)
+        Xb = torch.tensor(X_np[s:e], dtype=torch.float32, device=device)
+        n2v = node2v[s:e]
+        g   = gidx[s:e]
+        with torch.no_grad():
+            a, v, e4, h, d = model(Xb, n2v, g)  # raw logits
+            L = torch.stack([a, v, e4, h, d], dim=1)
+        logits[s:e] = L.detach().cpu().numpy()
+    return logits
+
+def _sigmoid_np(x):
+    return 1.0 / (1.0 + np.exp(-x))
+
+if 'calibrators_platt' not in globals():
+    # Build labels (train only)
+    Y_train5 = np.zeros((len(X_train_df), 5), dtype=int)
+    Y_train5[:, :4] = y_train_main_df[['ASCT','VART','ENCET','HEPT']].astype(int).values
+    Y_train5[:, 4]  = y_train_aux_df['DEADT'].astype(int).values
+
+    # Hold-out calibration split from TRAIN only (no test leakage)
+    idx = np.arange(len(X_train_df))
+    _, cal_idx = train_test_split(
+        idx, test_size=0.2, random_state=46, shuffle=True,
+        stratify=y_train_main_df['HEPT'].astype(int).values  # keep rare HRS represented
+    )
+
+    # Raw logits on full train, fit calibrators only on calibration subset
+    logits_train_full = _predict_all5_logits(X_train_df, train_node2vec_emb_t, train_gidx_t)
+    logits_cal = logits_train_full[cal_idx]
+    y_cal = Y_train5[cal_idx]
+
+    calibrators_platt = {}
+    for j, t in enumerate(ALL_TARGETS):
+        lr = LogisticRegression(max_iter=1000, solver='lbfgs')
+        lr.fit(logits_cal[:, [j]], y_cal[:, j])
+        calibrators_platt[t] = lr
+
+def _apply_calibration(logits_5):
+    probs = np.zeros_like(logits_5, dtype=np.float32)
+    for j, t in enumerate(ALL_TARGETS):
+        probs[:, j] = calibrators_platt[t].predict_proba(logits_5[:, [j]])[:, 1]
+    return probs
+
 # ----------------------------------------------------------------------------
 # 20B) Per-disease removal — annotated heatmap (for the same patient)
 # ----------------------------------------------------------------------------
+"""
 def _predict_probs_all(X_np, node2v, gidx):
     X = torch.tensor(X_np, dtype=torch.float32, device=device)
     N = X.shape[0]; node2vN = node2v.expand(N, -1, -1); gidxN = gidx.expand(N)
@@ -868,7 +923,24 @@ def _predict_probs_all(X_np, node2v, gidx):
         a, v, e, h, _ = model(X, node2vN, gidxN)
         P = torch.sigmoid(torch.stack([a,v,e,h], dim=1)).cpu().numpy().reshape(-1,4)
     return P[0]
+"""
+def _predict_probs_all(X_np, node2v, gidx):
+    X = torch.tensor(X_np, dtype=torch.float32, device=device)
+    N = X.shape[0]
+    node2vN = node2v.expand(N, -1, -1)
+    gidxN   = gidx.expand(N)
+    with torch.no_grad():
+        a, v, e, h, _ = model(X, node2vN, gidxN)   # logits
+        logits4 = torch.stack([a, v, e, h], dim=1).cpu().numpy().reshape(-1, 4)
 
+    if 'calibrators_platt' in globals():
+        P = np.zeros_like(logits4, dtype=np.float32)
+        for j, t in enumerate(['ASCT','VART','ENCET','HEPT']):
+            P[:, j] = calibrators_platt[t].predict_proba(logits4[:, [j]])[:, 1]
+    else:
+        P = _sigmoid_np(logits4)
+    return P[0]
+    
 pos = int(PERSON_POS)
 x_base = X_test_df.iloc[pos].values.astype(np.float32).reshape(1,-1)
 node2v_base = test_node2vec_emb_t[pos:pos+1]
@@ -937,6 +1009,7 @@ THRESHOLDS = THRESHOLDS if 'THRESHOLDS' in globals() else {'ASCT':0.5,'VART':0.5
 THR_DEADT = 0.50
 
 # ---------- 1) Get TRAIN & TEST probabilities for all 5 heads ----------
+"""
 def _predict_all5(df_X, node2v, gidx, batch=128):
     N = len(df_X)
     probs = np.zeros((N,5), dtype=np.float32)
@@ -950,6 +1023,12 @@ def _predict_all5(df_X, node2v, gidx, batch=128):
             P = torch.sigmoid(torch.stack([a,v,e4,h,d], dim=1))
         probs[s:e] = P.detach().cpu().numpy()
     return probs
+"""
+def _predict_all5(df_X, node2v, gidx, batch=512):
+    logits = _predict_all5_logits(df_X, node2v, gidx, batch=batch)
+    if 'calibrators_platt' in globals():
+        return _apply_calibration(logits)
+    return _sigmoid_np(logits)
 
 if 'probs_train_all5' not in globals():
     probs_train_all5 = _predict_all5(X_train_df, train_node2vec_emb_t, train_gidx_t)
