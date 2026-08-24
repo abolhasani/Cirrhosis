@@ -440,7 +440,7 @@ criterion_hept  = nn.BCEWithLogitsLoss(reduction='none', pos_weight=hept_pos_wei
 criterion_deadt = nn.BCEWithLogitsLoss(reduction='none')
 
 optimizer = optim.AdamW(model.parameters(), lr=0.00021761424732883586, weight_decay=0.0)
-print('Using tuned hyperparameters: lr=0.00021761424732883586, batch_size=128, num_heads=2, main_fc1_dim=192, loss_weight_deadt=1.0, hept_pos_weight=40.0, dropout=0.1, weight_decay=0.0')
+print('Using tuned hyperparameters: lr=0.00021761424732883586, batch_size=128, num_heads=2, main_fc1_dim=192, loss_weight_deadt=1.0, hept_pos_weight=10.0, dropout=0.1, weight_decay=0.0')
 
 IF_SCALING_FACTOR = 0.5
 loss_weights = {'asct':1.0,'vart':1.0,'encet':1.0,'hept':1.0,'deadt':1.0}
